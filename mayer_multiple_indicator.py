@@ -220,7 +220,7 @@ def plot_timeseries_data(filepath):
         height=820,
         template="plotly_dark",
         hovermode="x unified",
-        margin=dict(b=150, t=100), # Adjust margins
+        margin=dict(b=150, t=150), # Adjust margins
         xaxis=dict(
             rangeslider=dict(
                 visible=True, # This replaces your Matplotlib RangeSlider
