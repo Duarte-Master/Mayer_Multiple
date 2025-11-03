@@ -99,7 +99,7 @@ def plot_timeseries_data(filepath):
     fig = make_subplots(
         rows=2, cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.1,
+        vertical_spacing=0.18,
         row_heights=[3, 1],
         subplot_titles=(
             f'BTC/USD Price Time Series (Log Scale) and 200 SMA',
