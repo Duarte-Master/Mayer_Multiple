@@ -217,18 +217,27 @@ def plot_timeseries_data(filepath):
     # --- Global Layout Customization (Plotly Range Slider) ---
     fig.update_layout(
         title_text=f'Bitcoin Mayer Multiple Z-Score Dashboard',
-        height=820,
-        template="plotly_dark",
-        hovermode="x unified",
-        margin=dict(b=150, t=150), # Adjust margins
+       height=820,
+        template="plotly_dark", 
+        hovermode="x unified", 
+        
+        # CRITICAL CHANGE: Significantly increase bottom margin to push the subplot up.
+        margin=dict(b=150), 
+        
+        # Rangeslider is applied to the shared X-axis (the bottom one)
         xaxis=dict(
             rangeslider=dict(
-                visible=True, # This replaces your Matplotlib RangeSlider
-                thickness=0.04,
+                visible=True,
+                thickness=0.04, # Keep thickness minimal
             ),
             type="date",
             title_text="Date"
         ),
+        
+        # We no longer need this x-axis filter since the Plotly slider controls the view.
+        xaxis2=dict(
+            range=None,
+        )
     )
 
     # 7. Display the interactive plot in Streamlit
@@ -237,7 +246,7 @@ def plot_timeseries_data(filepath):
 
 if __name__ == '__main__':
     st.set_page_config(layout="wide")
-    st.title("💰 BTC Mayer Multiple Z-Score Dashboard")
+    st.title("Bitcoin Mayer Multiple Z-Score Dashboard")
 
     # Define the file path (must be accessible to the Streamlit app)
     # The user must upload the file or ensure it exists in the app's directory.
