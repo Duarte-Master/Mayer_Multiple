@@ -25,7 +25,7 @@ def plot_timeseries_data(filepath):
     """
 
     st.write(f"Created by Gonçalo Duarte")
-    st.info(f"Loading data for Mayer Multiple Z-Score from: {filepath}...")
+    # st.info(f"Loading data for Mayer Multiple Z-Score from: {filepath}...")
 
     # --- Data Loading and Preprocessing (Largely Unchanged) ---
     try:
