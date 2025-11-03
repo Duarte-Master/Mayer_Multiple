@@ -209,7 +209,7 @@ def plot_timeseries_data(filepath):
     # Z-Score Y-axis limits
     fig.update_yaxes(
         title_text="Z-Score",
-        range=[-4.5, 4.5], # Fixed range for better visualization of bands
+        range=[-4.5, 6.0], # Fixed range for better visualization of bands
         row=2, col=1,
         showgrid=True
     )
