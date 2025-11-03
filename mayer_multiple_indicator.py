@@ -216,11 +216,11 @@ def plot_timeseries_data(filepath):
 
     # --- Global Layout Customization (Plotly Range Slider) ---
     fig.update_layout(
-        title_text=f'**{price_column_name}** Mayer Multiple Z-Score Dashboard',
+        title_text=f'Bitcoin Mayer Multiple Z-Score Dashboard',
         height=820,
         template="plotly_dark",
         hovermode="x unified",
-        margin=dict(b=100, t=100), # Adjust margins
+        margin=dict(b=150, t=100), # Adjust margins
         xaxis=dict(
             rangeslider=dict(
                 visible=True, # This replaces your Matplotlib RangeSlider
