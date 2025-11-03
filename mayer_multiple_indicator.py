@@ -4,6 +4,7 @@ import pandas as pd
 # Matplotlib is replaced by Plotly for Streamlit
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors # Keep for color mapping logic
 
 # --- Custom SMA Function (Unchanged) ---
