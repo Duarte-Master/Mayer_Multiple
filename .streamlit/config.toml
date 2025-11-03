@@ -1,0 +1,3 @@
+[server]
+# This disables the file watcher, which often fixes the inotify error on cloud platforms.
+runOnSave = false
