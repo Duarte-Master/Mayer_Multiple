@@ -1,6 +1,8 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import yfinance as yf  # fetch historical price data from Yahoo Finance
+
 # Matplotlib is replaced by Plotly for Streamlit
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -19,44 +21,88 @@ def sma(series, period):
 
 
 # MODIFIED: Removed date filters as Plotly's rangeslider handles the view
-def plot_timeseries_data(filepath):
+@st.cache_data(show_spinner=False)
+def fetch_price_data(start_date="2013-01-01"):
+    """Fetches historical Bitcoin price data using Yahoo Finance via yfinance.
+
+    The function uses Streamlit's cache to avoid repeated network calls. Data is
+    trimmed to begin at **start_date** (default January 1st 2013). The returned
+    DataFrame has a datetime index and a single column named **Price**.
     """
-    Loads data, calculates indicators, and plots the result using Plotly.
+    try:
+        # yfinance returns a DataFrame indexed by datetime
+        df = yf.download("BTC-USD", start=start_date, interval="1d", progress=False)
+    except Exception as e:
+        st.error(f"Error fetching data from Yahoo Finance: {e}")
+        return pd.DataFrame(columns=["Price"])
+
+    if df.empty:
+        st.error("No data returned from Yahoo Finance.")
+        return pd.DataFrame(columns=["Price"])
+
+    # note: Yahoo Finance only has BTC history starting around September 2014; if
+    # the caller requested an earlier start_date we cannot fulfil it. We'll still
+    # return whatever data is available and display a message later in the app.
+
+    # Use the closing price as the price series
+    if "Close" not in df.columns:
+        st.error("Expected 'Close' column in data from Yahoo Finance.")
+        return pd.DataFrame(columns=["Price"])
+
+    # when yfinance returns a MultiIndex column frame (Price, Ticker) as it does
+    # when a single ticker is requested, selecting ['Close'] still yields a frame with
+    # two levels.  We'll convert to a simple Series/DataFrame with one column named
+    # 'Price' so the downstream code can index it normally.
+    price_df = df[["Close"]].rename(columns={"Close": "Price"})
+    price_df.index = pd.to_datetime(price_df.index)
+
+    # flatten any multi‑level columns produced by yfinance
+    if isinstance(price_df.columns, pd.MultiIndex):
+        # keep only the first level ("Price") since ticker is redundant
+        price_df.columns = price_df.columns.get_level_values(0)
+
+    # Filter start date just in case
+    price_df = price_df[price_df.index >= pd.to_datetime(start_date)]
+
+    return price_df
+
+
+def plot_timeseries_data(df=None):
+    """
+    Calculates indicators and plots the result using Plotly.
+
+    If *df* is omitted the function will automatically fetch data via API.
     """
 
     st.write(f"Created by Gonçalo Duarte")
-    # st.info(f"Loading data for Mayer Multiple Z-Score from: {filepath}...")
 
-    # --- Data Loading and Preprocessing (Largely Unchanged) ---
-    try:
-        df = pd.read_csv(filepath, thousands=',')
-    except FileNotFoundError:
-        st.error(f"Error: The file '{filepath}' was not found. Please check the path.")
+    # --- Data Loading and Preprocessing (Updated) ---
+    if df is None:
+        df = fetch_price_data()
+    # protect against a None return value (caching glitch or network error)
+    if df is None:
+        st.error("Data fetch failed; received None from fetch_price_data.")
         return
-    except Exception as e:
-        st.error(f"An error occurred while reading the CSV: {e}")
-        return
-
-    date_column_name = 'Date'
-    price_column_name = 'Price'
-
-    if date_column_name not in df.columns or price_column_name not in df.columns:
-        missing = [col for col in [date_column_name, price_column_name] if col not in df.columns]
-        st.error(f"Error: Missing required columns: {', '.join(missing)}. Available columns: {df.columns.tolist()}")
+    if df.empty:
+        st.error("No data available to plot.")
         return
 
-    try:
-        df[date_column_name] = pd.to_datetime(df[date_column_name], format='%m/%d/%Y')
-    except ValueError as e:
-        st.error(f"Error parsing dates: {e}. Check if the date format is strictly 'MM/DD/YYYY'.")
+    # display the range of available data for user awareness
+    st.write(f"Data from {df.index.min().date()} to {df.index.max().date()}")
+
+    # Ensure expected columns exist
+    if "Price" not in df.columns:
+        st.error("Error: Dataframe must contain a 'Price' column.")
         return
 
-    df.set_index(date_column_name, inplace=True)
-    price_data = df[price_column_name]
-    price_data = pd.to_numeric(price_data, errors='coerce')
+    # Already indexed by date from fetch function; convert if necessary
+    if not np.issubdtype(df.index.dtype, np.datetime64):
+        df.index = pd.to_datetime(df.index)
+
+    price_data = pd.to_numeric(df["Price"], errors="coerce")
     price_data.dropna(inplace=True)
 
-    # CRITICAL FIX: Reindex to fill calendar gaps
+    # CRITICAL FIX: Reindex to fill calendar gaps in the dataset
     if not price_data.empty:
         start_date = price_data.index.min()
         end_date = price_data.index.max()
@@ -109,12 +155,12 @@ def plot_timeseries_data(filepath):
 
     # 📊 --- Price Chart (Row 1) ---
 
-    # 2. Add Price Data
+    # 2. Add Price Data (use a contrasting color & thicker line so it's always visible)
     fig.add_trace(
         go.Scatter(
             x=price_data.index, y=price_data.values,
-            mode='lines', name=price_column_name,
-            line=dict(color='white', width=1),
+            mode='lines', name='Price',
+            line=dict(color='orange', width=2),
             # Plotly handles hover tooltips automatically
             hovertemplate='Date: %{x}<br>Price: $%{y:,.2f}<extra></extra>'
         ),
@@ -176,7 +222,8 @@ def plot_timeseries_data(filepath):
 
     # 6. Color Bar Background (Approximation using Scatter and color mapping)
     # Get Colormap from Matplotlib and convert to a Plotly colorscale
-    cmap = plt.cm.get_cmap('RdYlGn_r')
+    # Matplotlib 3.7+ deprecates plt.cm.get_cmap
+    cmap = plt.colormaps.get('RdYlGn_r')
     norm = mcolors.Normalize(vmin=-3, vmax=3)
     # Create the Plotly color scale (list of [relative value, color])
     plotly_colorscale = []
@@ -221,7 +268,7 @@ def plot_timeseries_data(filepath):
         template="plotly_dark", 
         hovermode="x unified", 
         
-        # CRITICAL CHANGE: Significantly increase bottom margin to push the subplot up.
+        # CRITICAL Change: increase bottom margin to push the subplot up.
         margin=dict(b=150), 
         
         # Rangeslider is applied to the shared X-axis (the bottom one)
@@ -241,19 +288,13 @@ def plot_timeseries_data(filepath):
     )
 
     # 7. Display the interactive plot in Streamlit
-    st.plotly_chart(fig, use_container_width=True)
+    # `use_container_width` is deprecated; use width='stretch' for full width
+    st.plotly_chart(fig, width='stretch')
 
 
 if __name__ == '__main__':
     st.set_page_config(layout="wide")
     st.title("Bitcoin Mayer Multiple Z-Score Dashboard")
 
-    # Define the file path (must be accessible to the Streamlit app)
-    # The user must upload the file or ensure it exists in the app's directory.
-    file_to_plot = 'Bitcoin Historical Data_test.csv'
-
-    # Streamlit file uploader for production use (optional, but good practice)
-    # uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
-
-    # For local testing, we'll use the hardcoded path
-    plot_timeseries_data(file_to_plot)
+    # Automatically fetch price history via API; no local CSV required.
+    plot_timeseries_data()  # the function will call fetch_price_data internally
