@@ -29,12 +29,33 @@ def fetch_price_data(start_date="2013-01-01"):
     trimmed to begin at **start_date** (default January 1st 2013). The returned
     DataFrame has a datetime index and a single column named **Price**.
     """
-    try:
-        # yfinance returns a DataFrame indexed by datetime
-        df = yf.download("BTC-USD", start=start_date, interval="1d", progress=False)
-    except Exception as e:
-        st.error(f"Error fetching data from Yahoo Finance: {e}")
-        return pd.DataFrame(columns=["Price"])
+    # attempt to download from Yahoo, with basic retry on rate limits
+    df = None
+    for attempt in range(3):
+        try:
+            df = yf.download("BTC-USD", start=start_date, interval="1d", progress=False)
+            break
+        except Exception as e:
+            msg = str(e).lower()
+            # yfinance periodically returns a rate-limit message
+            if "rate limit" in msg or "too many requests" in msg:
+                # wait a few seconds and retry
+                import time
+                time.sleep(5)
+                continue
+            else:
+                st.error(f"Error fetching data from Yahoo Finance: {e}")
+                return pd.DataFrame(columns=["Price"])
+    if df is None or df.empty:
+        # as a last resort load any local CSV provided by the user
+        local_path = "Bitcoin Historical Data_test.csv"
+        try:
+            df = pd.read_csv(local_path, parse_dates=True, index_col=0)
+            st.warning("Using local CSV data because online download failed.")
+        except Exception:
+            if df is None or df.empty:
+                st.error("Unable to obtain price data from Yahoo Finance or local file.")
+                return pd.DataFrame(columns=["Price"])
 
     if df.empty:
         st.error("No data returned from Yahoo Finance.")
